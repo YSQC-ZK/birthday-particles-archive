@@ -24,12 +24,98 @@
     pointer-events: none;
     user-select: none;
   }
+  #gestureBtn, #musicBtn {
+    position: fixed; top: 18px; right: 18px; z-index: 10;
+    padding: 8px 16px;
+    border: 1px solid rgba(200,170,255,.35);
+    border-radius: 999px;
+    background: rgba(40,20,70,.45);
+    color: rgba(230,220,255,.85);
+    font: 13px/1 "Microsoft YaHei", "PingFang SC", sans-serif;
+    letter-spacing: 1px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: background .2s, border-color .2s;
+  }
+  #musicBtn { right: 176px; }
+  #gestureBtn:hover, #musicBtn:hover { background: rgba(80,40,130,.6); border-color: rgba(220,190,255,.6); }
+  #gestureBtn.on, #musicBtn.on { background: rgba(255,110,170,.28); border-color: rgba(255,150,200,.7); }
+  /* 手机端控制条：仅触屏设备显示 */
+  #touchBar {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    display: none; gap: 8px; z-index: 10; white-space: nowrap;
+  }
+  #touchBar button, #flyPad button {
+    background: rgba(30,14,50,.6); color: #d8ccff;
+    border: 1px solid rgba(190,160,255,.3); border-radius: 10px;
+    padding: 9px 12px; font: 12px/1 "Microsoft YaHei", "PingFang SC", sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    backdrop-filter: blur(6px);
+  }
+  #touchBar button.on { background: rgba(255,110,170,.28); border-color: rgba(255,150,200,.7); }
+  #flyPad {
+    position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%);
+    display: grid; grid-template-columns: repeat(3, 56px); gap: 6px; z-index: 10;
+  }
+  #flyPad button { padding: 12px 0; text-align: center; }
+  #flyPad[hidden] { display: none; }
+  @media (pointer: coarse) {
+    #touchBar { display: flex; }
+    .hint.desktop { display: none; }
+    .hint.mobile { display: block; bottom: 58px; font-size: 11px; padding: 0 12px; }
+  }
+  .hint.mobile { display: none; }
+  #gesturePanel {
+    position: fixed; right: 14px; bottom: 56px; z-index: 10;
+    width: 104px;
+    border: 1px solid rgba(200,170,255,.3);
+    border-radius: 10px;
+    background: rgba(25,12,45,.6);
+    backdrop-filter: blur(6px);
+    overflow: hidden;
+    font: 10px/1.5 "Microsoft YaHei", "PingFang SC", sans-serif;
+    color: rgba(220,210,250,.8);
+    text-align: center;
+  }
+  #gesturePanel[hidden] { display: none; }
+  #gestureVideo { width: 100%; display: block; transform: scaleX(-1); }
+  #gestureStatus { padding: 4px 6px; min-height: 18px; }
+  #gestureMeter { height: 4px; background: rgba(255,255,255,.12); }
+  #gestureMeter i {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, #7bf7c4, #ffd166, #ff5fa2);
+    transition: width .08s linear;
+  }
+  /* 归档版：隐藏所有 UI 按钮与面板 */
   #gestureBtn, #musicBtn, #touchBar, #flyPad, #gesturePanel { display: none !important; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div class="hint desktop">右键拖动 · 旋转 &nbsp;|&nbsp; 左键双击 · 下一段 &nbsp;|&nbsp; 右键双击 · 上一段 &nbsp;|&nbsp; 单击 · 烟花 &nbsp;|&nbsp; F · 流星雨 &nbsp;|&nbsp; WASD/空格/Shift · 飞行</div>
+<div class="hint desktop">右键拖动 · 旋转 &nbsp;|&nbsp; 左键双击 · 下一段 &nbsp;|&nbsp; 右键双击 · 上一段 &nbsp;|&nbsp; 单击 · 烟花 &nbsp;|&nbsp; F · 流星雨 &nbsp;|&nbsp; WASD/空格/Shift · 飞行 &nbsp;|&nbsp; 手势：张开离散 / 握拳聚合</div>
+<div class="hint mobile">单指拖动 · 旋转视角 | 双击 · 下一段 | 单击 · 放烟花</div>
+<button id="musicBtn" type="button" title="背景音乐《Time machine》">🎵 音乐</button>
+<button id="gestureBtn" type="button">✋ 开启手势控制</button>
+<audio id="bgm" src="time-machine.mp3" loop preload="auto" autoplay></audio>
+<div id="touchBar">
+  <button id="tbPrev" type="button">⏮ 上一段</button>
+  <button id="tbNext" type="button">⏭ 下一段</button>
+  <button id="tbMeteor" type="button">☄ 流星雨</button>
+  <button id="tbFly" type="button">🚀 飞行</button>
+</div>
+<div id="flyPad" hidden>
+  <button data-key="Space" type="button">升</button>
+  <button data-key="KeyW" type="button">前</button>
+  <button data-key="ShiftLeft" type="button">降</button>
+  <button data-key="KeyA" type="button">左</button>
+  <button data-key="KeyS" type="button">后</button>
+  <button data-key="KeyD" type="button">右</button>
+</div>
+<div id="gesturePanel" hidden>
+  <video id="gestureVideo" playsinline muted></video>
+  <div id="gestureStatus">初始化…</div>
+  <div id="gestureMeter"><i></i></div>
+</div>
 <script>
 (function () {
   'use strict';
@@ -1423,6 +1509,9 @@
   // ---------- 手势识别（MediaPipe Hands，点击开关后按需加载） ----------
   var gBtn = document.getElementById('gestureBtn');
   var gPanel = document.getElementById('gesturePanel');
+  var gVideo = document.getElementById('gestureVideo');
+  var gStatus = document.getElementById('gestureStatus');
+  var gMeter = document.querySelector('#gestureMeter i');
   var gStream = null, gHands = null, gPumping = false, gBusy = false, gStarting = false;
 
   function loadScript(src) {
