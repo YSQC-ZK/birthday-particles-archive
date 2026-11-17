@@ -1,0 +1,1726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>陈柳 · 19岁生日快乐</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 120% 70% at 20% 90%, rgba(20,40,90,.55) 0%, rgba(20,40,90,0) 60%),
+      radial-gradient(ellipse 100% 60% at 85% 10%, rgba(90,30,80,.5) 0%, rgba(90,30,80,0) 60%),
+      radial-gradient(ellipse at 50% 42%, #2a0f3e 0%, #150726 45%, #08030f 100%);
+  }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+  .hint {
+    position: fixed; left: 0; right: 0; bottom: 22px;
+    text-align: center;
+    color: rgba(214, 206, 255, .42);
+    font: 13px/1.6 "Microsoft YaHei", "PingFang SC", sans-serif;
+    letter-spacing: .5px;
+    pointer-events: none;
+    user-select: none;
+  }
+  #gestureBtn, #musicBtn {
+    position: fixed; top: 18px; right: 18px; z-index: 10;
+    padding: 8px 16px;
+    border: 1px solid rgba(200,170,255,.35);
+    border-radius: 999px;
+    background: rgba(40,20,70,.45);
+    color: rgba(230,220,255,.85);
+    font: 13px/1 "Microsoft YaHei", "PingFang SC", sans-serif;
+    letter-spacing: 1px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: background .2s, border-color .2s;
+  }
+  #musicBtn { right: 176px; }
+  #gestureBtn:hover, #musicBtn:hover { background: rgba(80,40,130,.6); border-color: rgba(220,190,255,.6); }
+  #gestureBtn.on, #musicBtn.on { background: rgba(255,110,170,.28); border-color: rgba(255,150,200,.7); }
+  /* 手机端控制条：仅触屏设备显示 */
+  #touchBar {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    display: none; gap: 8px; z-index: 10; white-space: nowrap;
+  }
+  #touchBar button, #flyPad button {
+    background: rgba(30,14,50,.6); color: #d8ccff;
+    border: 1px solid rgba(190,160,255,.3); border-radius: 10px;
+    padding: 9px 12px; font: 12px/1 "Microsoft YaHei", "PingFang SC", sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    backdrop-filter: blur(6px);
+  }
+  #touchBar button.on { background: rgba(255,110,170,.28); border-color: rgba(255,150,200,.7); }
+  #flyPad {
+    position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%);
+    display: grid; grid-template-columns: repeat(3, 56px); gap: 6px; z-index: 10;
+  }
+  #flyPad button { padding: 12px 0; text-align: center; }
+  #flyPad[hidden] { display: none; }
+  @media (pointer: coarse) {
+    #touchBar { display: flex; }
+    .hint { bottom: 58px; font-size: 11px; padding: 0 12px; }
+  }
+  #gesturePanel {
+    position: fixed; right: 14px; bottom: 56px; z-index: 10;
+    width: 104px;
+    border: 1px solid rgba(200,170,255,.3);
+    border-radius: 10px;
+    background: rgba(25,12,45,.6);
+    backdrop-filter: blur(6px);
+    overflow: hidden;
+    font: 10px/1.5 "Microsoft YaHei", "PingFang SC", sans-serif;
+    color: rgba(220,210,250,.8);
+    text-align: center;
+  }
+  #gesturePanel[hidden] { display: none; }
+  #gestureVideo { width: 100%; display: block; transform: scaleX(-1); }
+  #gestureStatus { padding: 4px 6px; min-height: 18px; }
+  #gestureMeter { height: 4px; background: rgba(255,255,255,.12); }
+  #gestureMeter i {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, #7bf7c4, #ffd166, #ff5fa2);
+    transition: width .08s linear;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hint">右键拖动 · 旋转 &nbsp;|&nbsp; 左键双击 · 下一段 &nbsp;|&nbsp; 右键双击 · 上一段 &nbsp;|&nbsp; 单击 · 烟花 &nbsp;|&nbsp; F · 流星雨 &nbsp;|&nbsp; WASD/空格/Shift · 飞行 &nbsp;|&nbsp; 手势：张开离散 / 握拳聚合</div>
+<button id="musicBtn" type="button" title="背景音乐《Time machine》">🎵 音乐</button>
+<button id="gestureBtn" type="button">✋ 开启手势控制</button>
+<audio id="bgm" src="time-machine.mp3" loop preload="auto" autoplay></audio>
+<div id="touchBar">
+  <button id="tbPrev" type="button">⏮ 上一段</button>
+  <button id="tbNext" type="button">⏭ 下一段</button>
+  <button id="tbMeteor" type="button">☄ 流星雨</button>
+  <button id="tbFly" type="button">🚀 飞行</button>
+</div>
+<div id="flyPad" hidden>
+  <button data-key="Space" type="button">升</button>
+  <button data-key="KeyW" type="button">前</button>
+  <button data-key="ShiftLeft" type="button">降</button>
+  <button data-key="KeyA" type="button">左</button>
+  <button data-key="KeyS" type="button">后</button>
+  <button data-key="KeyD" type="button">右</button>
+</div>
+<div id="gesturePanel" hidden>
+  <video id="gestureVideo" playsinline muted></video>
+  <div id="gestureStatus">初始化…</div>
+  <div id="gestureMeter"><i></i></div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  var cvs = document.getElementById('c');
+  var ctx = cvs.getContext('2d');
+  var off = document.createElement('canvas');
+  var octx = off.getContext('2d');
+
+  var TAU = Math.PI * 2;
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+  var PHRASES = [
+    ['HAPPY', '19TH', 'BIRTHDAY'],
+    ['陈柳', '生日快乐'],
+    ['祝陈柳做什么', '都会平安', '都会顺利']
+  ];
+
+  var W = 0, H = 0, cx = 0, cy = 0, DPR = 1, FOV = 1000, unit = 600;
+  var CAKE = PHRASES.length;
+  var parts = [], dying = [], stars3d = [], fw = [], flames = [], lampTops = [], nebula = [];
+  var bokeh = [], aurora = [];
+  var cam = { x: 0, y: 0, z: 0 }, keys = {};
+  var meteors = [], showerLeft = 0, showerAcc = 0, showerDir = 1;
+  var gestureOn = false, gestureOpen = 0, gestureSeen = false, scatterAmt = 0;
+  var lampPt = { x: 0, y: 0, z: 0, sx: 0, sy: 0, ss: 1, sd: 1 };
+  var cakeGeo = null, cakeDeco = null;
+  var p3a = { sx: 0, sy: 0 }, p3b = { sx: 0, sy: 0 }, p3c = { sx: 0, sy: 0 }, p3d = { sx: 0, sy: 0 };
+  var flameFade = 0;
+  var phraseIdx = 0;
+  var mode = 'assemble', stateTime = 0;
+  var rotX = 0, rotY = 0, velX = 0, velY = 0, restX = 0, restY = 0;
+  var cosX = 1, sinX = 0, cosY = 1, sinY = 0;
+  var dragging = false, dragX = 0, dragY = 0, returning = false;
+  var mouse = { x: -9999, y: -9999 };
+  var touchMode = false, touchStart = null;
+  var clickTimer = 0, lastTap = 0;
+  var lastRightTap = 0, rightMoved = false, pendingScene = null;
+  var autoFwTimer = 900, autoMeteorTimer = -1;
+  var started = false, introPending = false;
+  var lastT = 0;
+
+  // ---------- 背景元素 ----------
+  // 真 3D 星域：星星分布在一个大立方体空间中，相机可在其中飞行（WSAD/空格/Shift）
+  // 星星坐标按相机位置周期性回绕，形成无边界的星空
+  var SPAN = 3600;
+  function initStars() {
+    stars3d = [];
+    var n = Math.round(W * H / 2600) + 500;
+    var cols = ['#ffffff', '#e8ecff', '#cfd8ff', '#aebaff', '#ffe6a8', '#ffcd6e', '#ffc4dd'];
+    for (var i = 0; i < n; i++) {
+      stars3d.push({
+        x: rand(-SPAN / 2, SPAN / 2),
+        y: rand(-SPAN / 2, SPAN / 2),
+        z: rand(-SPAN / 2, SPAN / 2),
+        r: rand(0.8, 2.6),
+        col: cols[(Math.random() * cols.length) | 0],
+        tw: Math.random() * TAU
+      });
+    }
+  }
+
+  // 每帧渲染 3D 星域：先随相机回绕，再做视角旋转 + 透视投影
+  function drawStars3d() {
+    var t = stateTime * 0.001;
+    for (var i = 0; i < stars3d.length; i++) {
+      var s = stars3d[i];
+      var rx = s.x - cam.x, ry = s.y - cam.y, rz = s.z - cam.z;
+      rx = ((rx + SPAN / 2) % SPAN + SPAN) % SPAN - SPAN / 2;
+      ry = ((ry + SPAN / 2) % SPAN + SPAN) % SPAN - SPAN / 2;
+      rz = ((rz + SPAN / 2) % SPAN + SPAN) % SPAN - SPAN / 2;
+      var x1 = rx * cosY + rz * sinY;
+      var z1 = -rx * sinY + rz * cosY;
+      var y2 = ry * cosX - z1 * sinX;
+      var z2 = ry * sinX + z1 * cosX;
+      var den = FOV + z2;
+      if (den < 120) continue; // 太近或到身后的星不画
+      var sc = FOV / den;
+      var sx = cx + x1 * sc, sy = cy + y2 * sc;
+      if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) continue;
+      var tw = 0.6 + 0.4 * Math.sin(t * 1.4 + s.tw);
+      var a = clamp(sc * 1.5, 0.05, 1) * tw;
+      var rr = s.r * sc * 2.2;
+      if (rr < 0.3) continue;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = s.col;
+      ctx.beginPath();
+      ctx.arc(sx, sy, rr, 0, TAU);
+      ctx.fill();
+      if (rr > 3) { // 近处亮星带一圈柔光
+        ctx.globalAlpha = a * 0.2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, rr * 2.6, 0, TAU);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 相机平移：方向跟随当前视角（右键拖动旋转后的朝向）
+  function moveCamera(k) {
+    var fx = -cosX * sinY, fy = sinX, fz = cosX * cosY;   // 前
+    var rxv = cosY, rzv = sinY;                            // 右
+    var ux = sinX * sinY, uy = cosX, uz = -sinX * cosY;    // 上
+    var mx = 0, my = 0, mz = 0;
+    if (keys.KeyW) { mx += fx; my += fy; mz += fz; }
+    if (keys.KeyS) { mx -= fx; my -= fy; mz -= fz; }
+    if (keys.KeyD) { mx += rxv; mz += rzv; }
+    if (keys.KeyA) { mx -= rxv; mz -= rzv; }
+    if (keys.Space) { mx += ux; my += uy; mz += uz; }
+    if (keys.ShiftLeft || keys.ShiftRight) { mx -= ux; my -= uy; mz -= uz; }
+    var sp = 9 * k;
+    // 无按键时缓慢自动巡航，星空保持轻微流动感
+    if (!mx && !my && !mz) { mx = fx * 0.12; my = fy * 0.12; mz = fz * 0.12; sp = 9 * k; }
+    cam.x += mx * sp;
+    cam.y += my * sp;
+    cam.z += mz * sp;
+  }
+
+  // 流星雨：按 F 触发，同一方向成片划过，带渐隐拖尾
+  function startShower() {
+    showerLeft = 70;
+    showerAcc = 0;
+    showerDir = Math.random() < 0.5 ? 1 : -1;
+  }
+
+  function spawnMeteor() {
+    meteors.push({
+      x: rand(-W * 0.1, W * 1.1),
+      y: rand(-H * 0.15, H * 0.35),
+      vx: showerDir * rand(7, 12),
+      vy: rand(2.6, 4.6),
+      life: 1,
+      decay: rand(0.008, 0.016),
+      hue: Math.random() < 0.6 ? 46 : 200,
+      w: rand(1.1, 2.2)
+    });
+  }
+
+  // 背景星云：少量大尺寸柔光球缓慢漂移，铺出前后景的色彩层次
+  function initNebula() {
+    nebula = [];
+    var palettes = [
+      ['rgba(124,72,214,0.10)', 'rgba(60,30,120,0)'],
+      ['rgba(224,86,160,0.09)', 'rgba(80,20,80,0)'],
+      ['rgba(72,130,235,0.08)', 'rgba(20,30,90,0)'],
+      ['rgba(255,186,120,0.06)', 'rgba(80,40,20,0)']
+    ];
+    var minDim = Math.min(W, H);
+    for (var i = 0; i < 5; i++) {
+      var p = palettes[i % palettes.length];
+      nebula.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: rand(minDim * 0.28, minDim * 0.6),
+        c0: p[0],
+        c1: p[1],
+        vx: rand(-0.07, 0.07),
+        vy: rand(-0.05, 0.05),
+        phase: Math.random() * TAU
+      });
+    }
+  }
+
+  // 极光：几条超大横向柔光带，随时间缓慢摆动，给天空加入流动的色彩
+  function initAurora() {
+    aurora = [];
+    var cols = [
+      ['rgba(96,72,200,0.12)', 'rgba(40,20,90,0)'],
+      ['rgba(210,80,160,0.09)', 'rgba(70,20,70,0)'],
+      ['rgba(60,150,210,0.08)', 'rgba(20,40,90,0)']
+    ];
+    for (var i = 0; i < 3; i++) {
+      aurora.push({
+        bx: rand(0.15, 0.85),
+        by: rand(0.12, 0.55),
+        rx: rand(W * 0.4, W * 0.65),
+        ry: rand(H * 0.1, H * 0.2),
+        c0: cols[i][0],
+        c1: cols[i][1],
+        phase: Math.random() * TAU,
+        speed: rand(0.0002, 0.00045)
+      });
+    }
+  }
+
+  // 前景虚化光斑（bokeh）：半透明大圆缓慢上浮，营造镜头景深
+  function initBokeh() {
+    bokeh = [];
+    var n = Math.round(W * H / 55000) + 6;
+    var cols = ['255,180,220', '170,150,255', '255,220,170', '140,200,255'];
+    for (var i = 0; i < n; i++) {
+      bokeh.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: rand(14, 46),
+        col: cols[(Math.random() * cols.length) | 0],
+        a: rand(0.03, 0.08),
+        vy: rand(0.06, 0.22),
+        vx: rand(-0.05, 0.05),
+        p: Math.random() * TAU
+      });
+    }
+  }
+
+  // ---------- 文字采样 ----------
+  function fontFor(line, s) {
+    var cjk = /[\u4e00-\u9fff]/.test(line);
+    return cjk
+      ? '700 ' + s + 'px "STKaiti", "华文楷体", "KaiTi", "楷体", "STZhongsong", serif'
+      : 'italic 900 ' + s + 'px Georgia, "Times New Roman", "Arial Black", serif';
+  }
+
+  function samplePoints(lines) {
+    octx.setTransform(1, 0, 0, 1, 0, 0);
+    octx.clearRect(0, 0, off.width, off.height);
+    octx.scale(DPR, DPR);
+    octx.fillStyle = '#fff';
+    octx.strokeStyle = '#fff';
+    octx.textAlign = 'center';
+    octx.textBaseline = 'middle';
+
+    function measure(line, s) {
+      octx.font = fontFor(line, s);
+      return octx.measureText(line).width;
+    }
+
+    var fs = Math.min(H * 0.2, W * 0.17);
+    var widest = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var n = Array.from(lines[i]).length;
+      widest = Math.max(widest, measure(lines[i], fs) + fs * 0.02 * (n - 1));
+    }
+    var maxW = W * 0.8;
+    if (widest > maxW) fs *= maxW / widest;
+    var maxH = H * 0.6;
+    var totalH = fs * 1.16 * lines.length;
+    if (totalH > maxH) fs *= maxH / totalH;
+    fs = Math.max(28, fs);
+
+    var lh = fs * 1.16;
+    var top = H * 0.47 - (lh * lines.length) / 2 + lh / 2;
+    octx.lineWidth = fs * 0.025;
+
+    for (var li = 0; li < lines.length; li++) {
+      var line = lines[li];
+      var y = top + li * lh;
+      octx.font = fontFor(line, fs);
+
+      var chars = Array.from(line);
+      var widths = [];
+      var total = 0;
+      for (var ci = 0; ci < chars.length; ci++) {
+        var w = octx.measureText(chars[ci]).width;
+        widths.push(w);
+        total += w;
+      }
+      var gapChar = fs * 0.02;
+      total += gapChar * (chars.length - 1);
+
+      var x = W / 2 - total / 2;
+      for (var k = 0; k < chars.length; k++) {
+        var cw = widths[k];
+        var rot = (Math.random() - 0.5) * 0.02;
+        var dy = (Math.random() - 0.5) * fs * 0.02;
+        var sc = 1 + (Math.random() - 0.5) * 0.02;
+        octx.save();
+        octx.translate(x + cw / 2, y + dy);
+        octx.rotate(rot);
+        octx.scale(sc, sc);
+        octx.fillText(chars[k], 0, 0);
+        octx.strokeText(chars[k], 0, 0);
+        octx.restore();
+        x += cw + gapChar;
+      }
+    }
+    octx.setTransform(1, 0, 0, 1, 0, 0);
+
+    var img = octx.getImageData(0, 0, off.width, off.height).data;
+    var gap = Math.max(2, Math.round(fs / 76));
+    var step = Math.max(2, Math.round(gap * DPR));
+    var pts = [];
+    for (var py = 0; py < off.height; py += step) {
+      for (var px = 0; px < off.width; px += step) {
+        if (img[(py * off.width + px) * 4 + 3] > 130) {
+          pts.push({ x: px / DPR + rand(-0.35, 0.35), y: py / DPR + rand(-0.35, 0.35) });
+        }
+      }
+    }
+    return { pts: pts, fs: fs };
+  }
+
+  // ---------- 粒子 ----------
+  function pickColor(x) {
+    if (Math.random() < 0.05) return 'hsl(' + rand(38, 56).toFixed(0) + ',100%,74%)';
+    var t = clamp((x / W) * 1.1 - 0.05, 0, 1);
+    var hue = 322 - 130 * t;
+    return 'hsl(' + hue.toFixed(0) + ',' + (92 + Math.random() * 8).toFixed(0) + '%,' + (62 + Math.random() * 18).toFixed(0) + '%)';
+  }
+
+  // 每个粒子的离散方向（球面随机），手势张开时沿此方向散开
+  function scatterDir() {
+    var a = Math.random() * TAU, z = rand(-1, 1);
+    var m = Math.sqrt(1 - z * z), r = rand(0.45, 1);
+    return { x: Math.cos(a) * m * r, y: Math.sin(a) * m * r, z: z * r };
+  }
+
+  function newParticle(tx, ty, tz, colorX) {
+    var sd = scatterDir();
+    return {
+      x: cx + rand(-30, 30),
+      y: cy + rand(-30, 30),
+      z: rand(-20, 20),
+      vx: rand(-1.5, 1.5),
+      vy: rand(-1.5, 1.5),
+      vz: rand(-1.5, 1.5),
+      tx: tx, ty: ty, tz: tz,
+      scx: sd.x, scy: sd.y, scz: sd.z,
+      color: pickColor(colorX === undefined ? tx + cx : colorX),
+      r: rand(0.7, 1.35),
+      alpha: 0,
+      sx: 0, sy: 0, ss: 1,
+      dying: false
+    };
+  }
+
+  // 逐点写入目标位置（文字/蛋糕共用）
+  function assignTargets(list) {
+    var next = [];
+    var reuse = Math.min(list.length, parts.length);
+    for (var a = 0; a < reuse; a++) {
+      var p = parts[a], t = list[a];
+      p.tx = t.x;
+      p.ty = t.y;
+      p.tz = t.z;
+      var sd = scatterDir();
+      p.scx = sd.x; p.scy = sd.y; p.scz = sd.z;
+      p.color = t.color;
+      p.flat = !!t.flat;
+      p.alpha = Math.min(p.alpha, 0.25);
+      next.push(p);
+    }
+    for (var b = reuse; b < list.length; b++) {
+      var t2 = list[b];
+      var np = newParticle(t2.x, t2.y, t2.z, 0);
+      np.color = t2.color;
+      np.flat = !!t2.flat;
+      np.alpha = 0;
+      next.push(np);
+    }
+    for (var c = reuse; c < parts.length; c++) {
+      var pd = parts[c];
+      pd.dying = true;
+      pd.alpha = 0.85;
+      pd.vx += rand(-6, 6);
+      pd.vy += rand(-6, 2);
+      pd.vz += rand(-6, 6);
+      dying.push(pd);
+    }
+    parts = next;
+  }
+
+  function particleCap() {
+    return Math.max(7000, Math.min(13000, Math.round((W * H) / 85)));
+  }
+
+  function buildText(idx) {
+    var res = samplePoints(PHRASES[idx]);
+    var pts = res.pts;
+    var depth = res.fs * 0.1;
+
+    function zAt() {
+      var v = Math.pow(Math.random(), 2) * depth;
+      return Math.random() < 0.5 ? -v : v;
+    }
+
+    for (var i = pts.length - 1; i > 0; i--) {
+      var j = (Math.random() * (i + 1)) | 0;
+      var tmp = pts[i]; pts[i] = pts[j]; pts[j] = tmp;
+    }
+
+    var n = Math.min(pts.length, Math.round(particleCap() * 1.18));
+    var target = [];
+    for (var k = 0; k < n; k++) {
+      var t = pts[k];
+      var tz = zAt();
+      var s0 = FOV / (FOV + tz);
+      target.push({ x: (t.x - cx) / s0, y: (t.y - cy) / s0, z: tz, color: pickColor(t.x) });
+    }
+    assignTargets(target);
+    flames = [];
+    lampTops = [];
+    cakeGeo = null;
+    cakeDeco = null;
+    flameFade = 0;
+  }
+
+  // ---------- 3D 粒子蛋糕 ----------
+  function buildCake() {
+    var u = unit;
+    var R1 = u * 0.25, H1 = u * 0.105;
+    var R2 = u * 0.163, H2 = u * 0.085;
+    var baseY = u * 0.148;
+    var y1Top = baseY - H1;
+    var y2Top = y1Top - H2;
+    var plateY = baseY + u * 0.02;
+    var plateR = u * 0.31;
+    var cap = Math.round(particleCap() * 2.9);
+    var list = [];
+
+    var bodyCol = 'hsl(338,58%,62%)';
+    var edgeCol = 'hsl(340,96%,84%)';
+    var topCol = 'hsl(342,92%,88%)';
+    var dripCol = 'hsl(342,96%,86%)';
+    var plateCol = 'hsl(45,85%,64%)';
+
+    // 沿圆周均匀铺一圈粒子，形成清晰的轮廓环
+    function ringPts(R, y, col, step, yJitter) {
+      var n = Math.max(24, Math.round((TAU * R) / step));
+      for (var i = 0; i < n; i++) {
+        var a = (i / n) * TAU;
+        list.push({
+          x: Math.cos(a) * R,
+          y: y + (yJitter ? rand(-0.8, 0.8) : 0),
+          z: Math.sin(a) * R,
+          color: col
+        });
+      }
+    }
+
+    function fillSide(n, R, yTop, yBot) {
+      for (var i = 0; i < n; i++) {
+        var a = Math.random() * TAU;
+        var y = rand(yTop, yBot);
+        var col = bodyCol;
+        if (Math.random() < 0.012) col = 'hsl(46,100%,74%)';
+        list.push({ x: Math.cos(a) * R, y: y, z: Math.sin(a) * R, color: col });
+      }
+    }
+
+    function fillTop(n, R, innerR, y) {
+      for (var i = 0; i < n; i++) {
+        var a = Math.random() * TAU;
+        var rr = Math.sqrt(rand(innerR * innerR, R * R));
+        var col = topCol;
+        if (Math.random() < 0.09) col = 'hsl(' + rand(0, 360).toFixed(0) + ',100%,72%)';
+        list.push({ x: Math.cos(a) * rr, y: y + rand(-1, 1), z: Math.sin(a) * rr, color: col });
+      }
+    }
+
+    // 金边盘子（先画，避免压住蛋糕主体）
+    for (var pi = 0; pi < Math.round(cap * 0.11); pi++) {
+      var pa = Math.random() * TAU;
+      var pr = Math.sqrt(rand(R1 * R1 * 0.92, plateR * plateR));
+      list.push({
+        x: Math.cos(pa) * pr,
+        y: plateY + rand(-1, 1),
+        z: Math.sin(pa) * pr,
+        color: Math.random() < 0.5 ? 'hsl(45,70%,56%)' : 'hsl(40,58%,48%)'
+      });
+    }
+    ringPts(plateR, plateY, 'hsl(46,100%,74%)', 2.6, false);
+    ringPts(plateR * 0.9, plateY, plateCol, 3.4, false);
+
+    fillSide(Math.round(cap * 0.36), R1, y1Top, baseY);
+    ringPts(R1, y1Top, edgeCol, 2.2, false);
+    ringPts(R1, baseY, edgeCol, 2.4, false);
+    fillTop(Math.round(cap * 0.3), R1, R2, y1Top);
+
+    fillSide(Math.round(cap * 0.2), R2, y2Top, y1Top);
+    ringPts(R2, y2Top, edgeCol, 2.2, false);
+    ringPts(R2, y1Top, edgeCol, 2.6, false);
+    fillTop(Math.round(cap * 0.18), R2, 0, y2Top);
+
+    // 奶油滴落
+    for (var d = 0; d < 40; d++) {
+      var da = Math.random() * TAU;
+      var dlen = rand(u * 0.012, u * 0.038);
+      var dst = Math.max(3, Math.round(dlen / 3));
+      for (var ds = 0; ds < dst; ds++) {
+        list.push({
+          x: Math.cos(da) * R1,
+          y: y1Top + (dlen * ds) / dst,
+          z: Math.sin(da) * R1,
+          color: dripCol
+        });
+      }
+    }
+    for (var d2 = 0; d2 < 30; d2++) {
+      var da2 = Math.random() * TAU;
+      var dlen2 = rand(u * 0.01, u * 0.03);
+      var dst2 = Math.max(3, Math.round(dlen2 / 3));
+      for (var ds2 = 0; ds2 < dst2; ds2++) {
+        list.push({
+          x: Math.cos(da2) * R2,
+          y: y2Top + (dlen2 * ds2) / dst2,
+          z: Math.sin(da2) * R2,
+          color: dripCol
+        });
+      }
+    }
+
+    // 19 根蜡烛：外圈 12、内圈 7
+    var tops = [];
+    var CANDLE_H = u * 0.085;
+    var CW = u * 0.0075;
+    for (var ci = 0; ci < 19; ci++) {
+      var outer = ci < 12;
+      var cnt = outer ? 12 : 7;
+      var idxIn = outer ? ci : ci - 12;
+      var ringR = outer ? R2 * 0.84 : R2 * 0.42;
+      var ang = -Math.PI / 2 + (idxIn / cnt) * TAU + (outer ? 0 : 0.23);
+      var bx = Math.cos(ang) * ringR;
+      var bz = Math.sin(ang) * ringR;
+      var topY = y2Top - CANDLE_H;
+      for (var col2 = 0; col2 < 3; col2++) {
+        var side2 = (col2 - 1) * 0.85;
+        var ox = Math.cos(ang + Math.PI / 2) * CW * side2;
+        var oz = Math.sin(ang + Math.PI / 2) * CW * side2;
+        for (var sg = 0; sg <= 12; sg++) {
+          var yy = topY + (CANDLE_H * sg) / 12;
+          list.push({
+            x: bx + ox,
+            y: yy,
+            z: bz + oz,
+            flat: true,
+            color: Math.floor(sg / 3) % 2 === 0 ? '#ff3b6b' : '#fff6e0'
+          });
+        }
+      }
+      list.push({ x: bx, y: topY - u * 0.006, z: bz, color: 'hsl(260,20%,52%)' });
+      tops.push({ x: bx, y: topY - u * 0.004, z: bz });
+    }
+
+    assignTargets(list);
+    cakeGeo = { R1: R1, R2: R2, y1Top: y1Top, y2Top: y2Top, baseY: baseY, plateY: plateY, plateR: plateR };
+    buildCakeDeco();
+    initFlames(tops);
+  }
+
+  function buildScene(i) {
+    if (i >= CAKE) buildCake();
+    else buildText(i);
+  }
+
+  function initFlames(tops) {
+    flames = [];
+    flameFade = 0;
+    lampTops = tops;
+    for (var i = 0; i < tops.length; i++) {
+      for (var j = 0; j < 5; j++) {
+        flames.push({
+          bx: tops[i].x, by: tops[i].y, bz: tops[i].z,
+          life: Math.random(),
+          speed: rand(0.02, 0.034),
+          phase: Math.random() * TAU,
+          sx: 0, sy: 0, ss: 1
+        });
+      }
+    }
+  }
+
+  function project(p) {
+    var x1 = p.x * cosY + p.z * sinY;
+    var z1 = -p.x * sinY + p.z * cosY;
+    var y2 = p.y * cosX - z1 * sinX;
+    var z2 = p.y * sinX + z1 * cosX;
+    var s = FOV / (FOV + z2);
+    p.sx = cx + x1 * s;
+    p.sy = cy + y2 * s;
+    p.ss = s;
+    p.sd = clamp(1.08 - z2 / (unit * 1.1), 0.6, 1.08);
+    p.z2 = z2;
+  }
+
+  // ---------- 蛋糕装饰：倾斜星环 + 丝状飘带 ----------
+  function buildCakeDeco() {
+    var u = unit;
+    var rings = [];
+    var conf = [
+      { R: u * 0.40, tilt: -0.52, tiltZ: 0.22, speed: 0.22, yOff: u * 0.075, n: 150, cols: ['#ffe9a8', '#ffd166', '#fff6e0'] },
+      { R: u * 0.48, tilt: 0.38, tiltZ: -0.30, speed: -0.16, yOff: -u * 0.01, n: 110, cols: ['#ffb3d9', '#d9b3ff', '#fff0f8'] }
+    ];
+    for (var ri = 0; ri < conf.length; ri++) {
+      var c = conf[ri], pts = [];
+      for (var i = 0; i < c.n; i++) {
+        var big = Math.random() < 0.08;
+        pts.push({
+          a0: Math.random() * TAU,
+          rj: rand(-u * 0.022, u * 0.022),
+          yj: rand(-u * 0.014, u * 0.014),
+          r: big ? rand(2.2, 3.2) : rand(0.8, 1.8),
+          col: c.cols[(Math.random() * c.cols.length) | 0],
+          tw: Math.random() * TAU,
+          x: 0, y: 0, z: 0, sx: 0, sy: 0, ss: 1, sd: 1, z2: 0
+        });
+      }
+      rings.push({ R: c.R, tilt: c.tilt, tiltZ: c.tiltZ, speed: c.speed, yOff: c.yOff, pts: pts });
+    }
+    var ribbons = [];
+    for (var bi = 0; bi < 2; bi++) {
+      var n = 64, pts2 = [];
+      for (var j = 0; j <= n; j++) pts2.push({ x: 0, y: 0, z: 0, sx: 0, sy: 0, ss: 1, z2: 0 });
+      ribbons.push({
+        turns: bi ? -1.15 : 1.35,
+        R0: u * (bi ? 0.44 : 0.37),
+        amp: u * 0.05,
+        yBot: u * 0.19,
+        yTop: -u * 0.16,
+        phase: bi * Math.PI,
+        speed: bi ? -0.35 : 0.45,
+        hue: bi ? 285 : 335,
+        n: n, pts: pts2
+      });
+    }
+    cakeDeco = { rings: rings, ribbons: ribbons };
+  }
+
+  function updateCakeDeco() {
+    if (!cakeDeco) return;
+    var t = stateTime * 0.001, u = unit;
+    for (var ri = 0; ri < cakeDeco.rings.length; ri++) {
+      var rg = cakeDeco.rings[ri];
+      var ct = Math.cos(rg.tilt), st = Math.sin(rg.tilt);
+      var cz = Math.cos(rg.tiltZ), sz = Math.sin(rg.tiltZ);
+      for (var i = 0; i < rg.pts.length; i++) {
+        var pt = rg.pts[i];
+        var a = pt.a0 + t * rg.speed;
+        // 半径/高度带随机抖动和缓慢起伏，避免规整的圆环感
+        var R = rg.R + pt.rj + Math.sin(a * 3 + t * 0.7) * u * 0.009;
+        var x = Math.cos(a) * R, z = Math.sin(a) * R;
+        var y = pt.yj + Math.sin(a * 2 + t * 0.9) * u * 0.005;
+        var x2 = x * cz - y * sz, y2 = x * sz + y * cz;
+        pt.x = x2;
+        pt.y = y2 * ct - z * st + rg.yOff;
+        pt.z = y2 * st + z * ct;
+        project(pt);
+      }
+    }
+    for (var bi = 0; bi < cakeDeco.ribbons.length; bi++) {
+      var rb = cakeDeco.ribbons[bi];
+      for (var j = 0; j <= rb.n; j++) {
+        var tt = j / rb.n;
+        var a2 = tt * TAU * rb.turns + t * rb.speed + rb.phase;
+        var R2 = rb.R0 + Math.sin(tt * 5 + t * 1.3 + rb.phase) * rb.amp;
+        var p2 = rb.pts[j];
+        p2.x = Math.cos(a2) * R2;
+        p2.z = Math.sin(a2) * R2;
+        p2.y = rb.yBot + (rb.yTop - rb.yBot) * tt + Math.sin(tt * 7 + t * 2 + rb.phase) * u * 0.014;
+        project(p2);
+      }
+    }
+  }
+
+  // front=false 画蛋糕后面的部分，front=true 画前面的部分（简单遮挡）
+  function drawCakeDeco(front, fade) {
+    if (!cakeDeco || fade <= 0) return;
+    ctx.globalCompositeOperation = 'lighter';
+    for (var ri = 0; ri < cakeDeco.rings.length; ri++) {
+      var pts = cakeDeco.rings[ri].pts;
+      for (var i = 0; i < pts.length; i++) {
+        var pt = pts[i];
+        if ((pt.z2 <= 0) !== front) continue;
+        var tw = 0.55 + 0.45 * Math.sin(stateTime * 0.003 + pt.tw);
+        ctx.globalAlpha = tw * fade * (front ? 0.95 : 0.5);
+        ctx.fillStyle = pt.col;
+        ctx.beginPath();
+        ctx.arc(pt.sx, pt.sy, pt.r * pt.ss, 0, TAU);
+        ctx.fill();
+      }
+    }
+    ctx.lineCap = 'round';
+    for (var bi = 0; bi < cakeDeco.ribbons.length; bi++) {
+      var rb = cakeDeco.ribbons[bi];
+      for (var j = 0; j < rb.n; j++) {
+        var a = rb.pts[j], b = rb.pts[j + 1];
+        if (((a.z2 + b.z2) * 0.5 <= 0) !== front) continue;
+        var tt = j / rb.n;
+        var silk = Math.sin(tt * Math.PI);
+        ctx.globalAlpha = (0.10 + 0.45 * silk) * fade * (front ? 1 : 0.45);
+        ctx.strokeStyle = 'hsl(' + (rb.hue + tt * 55).toFixed(0) + ',95%,' + (68 + silk * 12).toFixed(0) + '%)';
+        ctx.lineWidth = Math.max(0.4, (0.8 + 3.4 * silk) * a.ss);
+        ctx.beginPath();
+        ctx.moveTo(a.sx, a.sy);
+        ctx.lineTo(b.sx, b.sy);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  // 蛋糕底层实心衬底：只用来堵住粒子间的细小缝隙，避免露出黑色空洞
+  function proj3(x, y, z, o) {
+    var x1 = x * cosY + z * sinY;
+    var z1 = -x * sinY + z * cosY;
+    var y2 = y * cosX - z1 * sinX;
+    var z2 = y * sinX + z1 * cosX;
+    var s = FOV / (FOV + z2);
+    o.sx = cx + x1 * s;
+    o.sy = cy + y2 * s;
+    return o;
+  }
+
+  function cakeDisc(R, y, col) {
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    for (var i = 0; i <= 40; i++) {
+      var a = (i / 40) * TAU;
+      proj3(Math.cos(a) * R, y, Math.sin(a) * R, p3a);
+      if (i) ctx.lineTo(p3a.sx, p3a.sy);
+      else ctx.moveTo(p3a.sx, p3a.sy);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function cakeBand(R, yTop, yBot, col) {
+    ctx.fillStyle = col;
+    var N = 30;
+    for (var i = 0; i < N; i++) {
+      var a0 = (i / N) * TAU;
+      var a1 = ((i + 1) / N) * TAU;
+      proj3(Math.cos(a0) * R, yBot, Math.sin(a0) * R, p3a);
+      proj3(Math.cos(a1) * R, yBot, Math.sin(a1) * R, p3b);
+      proj3(Math.cos(a1) * R, yTop, Math.sin(a1) * R, p3c);
+      proj3(Math.cos(a0) * R, yTop, Math.sin(a0) * R, p3d);
+      ctx.beginPath();
+      ctx.moveTo(p3a.sx, p3a.sy);
+      ctx.lineTo(p3b.sx, p3b.sy);
+      ctx.lineTo(p3c.sx, p3c.sy);
+      ctx.lineTo(p3d.sx, p3d.sy);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function explodeText() {
+    mode = 'explode';
+    stateTime = 0;
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var d = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z) || 1;
+      var sp = rand(3, 12);
+      p.vx = (p.x / d) * sp + rand(-2, 2);
+      p.vy = (p.y / d) * sp + rand(-4, 1);
+      p.vz = (p.z / d) * sp + rand(-2, 2);
+    }
+    burst(cx, H * 0.45, 330, 130, 1.3);
+  }
+
+  // 开场：先摆好第一段文字，再让它炸开，1.9 秒后重新聚合（与切段动画一致）
+  function introBurst() {
+    introPending = true;
+    dying = [];
+    phraseIdx = 0;
+    buildScene(0);
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      p.x = p.tx;
+      p.y = p.ty;
+      p.z = p.tz;
+      p.alpha = rand(0.55, 1);
+    }
+    explodeText();
+  }
+
+  // ---------- 烟花 ----------
+  function burst(x, y, hue, count, power) {
+    if (fw.length > 1800) return;
+    for (var i = 0; i < count; i++) {
+      var a = Math.random() * TAU;
+      var sp = Math.pow(Math.random(), 1.5) * 5.4 * power + 0.4;
+      fw.push({
+        x: x, y: y, px: x, py: y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        hue: hue + rand(-22, 22),
+        life: 1,
+        decay: rand(0.008, 0.02)
+      });
+    }
+  }
+
+  // ---------- 更新 ----------
+  function update(k, dt) {
+    stateTime += dt;
+
+    // 背景缓慢漂移：星云
+    for (var ni = 0; ni < nebula.length; ni++) {
+      var nb = nebula[ni];
+      nb.x += nb.vx * k;
+      nb.y += nb.vy * k;
+      if (nb.x < -nb.r) nb.x = W + nb.r;
+      if (nb.x > W + nb.r) nb.x = -nb.r;
+      if (nb.y < -nb.r) nb.y = H + nb.r;
+      if (nb.y > H + nb.r) nb.y = -nb.r;
+    }
+
+    // 3D 星域相机飞行（WSAD / 空格 / Shift）
+    moveCamera(k);
+
+    // 流星雨：F 触发后在约 2 秒内陆续划过
+    if (showerLeft > 0) {
+      showerAcc += dt;
+      while (showerAcc >= 28 && showerLeft > 0) {
+        spawnMeteor();
+        showerLeft--;
+        showerAcc -= 28;
+      }
+    }
+    for (var mi = meteors.length - 1; mi >= 0; mi--) {
+      var mt = meteors[mi];
+      mt.x += mt.vx * k;
+      mt.y += mt.vy * k;
+      mt.life -= mt.decay * k;
+      if (mt.life <= 0 || mt.x < -200 || mt.x > W + 200 || mt.y > H + 200) meteors.splice(mi, 1);
+    }
+
+    // 前景虚化光斑缓慢上浮
+    for (var bi = 0; bi < bokeh.length; bi++) {
+      var bk = bokeh[bi];
+      bk.y -= bk.vy * k;
+      bk.x += bk.vx * k;
+      if (bk.y < -bk.r) { bk.y = H + bk.r; bk.x = Math.random() * W; }
+      if (bk.x < -bk.r) bk.x = W + bk.r;
+      if (bk.x > W + bk.r) bk.x = -bk.r;
+    }
+
+    // 视角：切段回正 > 拖拽 > 惯性
+    if (returning) {
+      rotY += (restY - rotY) * 0.12 * k;
+      rotX += (restX - rotX) * 0.12 * k;
+      if (Math.abs(rotY - restY) < 0.004 && Math.abs(rotX - restX) < 0.004) {
+        rotY = restY;
+        rotX = restX;
+        returning = false;
+      }
+    } else if (!dragging) {
+      rotY += velY * k;
+      rotX += velX * k;
+      velY *= Math.pow(0.95, k);
+      velX *= Math.pow(0.95, k);
+      if (phraseIdx >= CAKE) rotY += 0.0022 * k;   // 蛋糕缓慢自转
+    }
+    rotX = clamp(rotX, -1.15, 1.15);
+    cosX = Math.cos(rotX); sinX = Math.sin(rotX);
+    cosY = Math.cos(rotY); sinY = Math.sin(rotY);
+
+    if (mode === 'explode' && stateTime > 1900) {
+      if (pendingScene !== null) {
+        phraseIdx = pendingScene;
+        pendingScene = null;
+      } else if (introPending) {
+        introPending = false;
+        phraseIdx = 0;
+      } else if (phraseIdx < CAKE) {
+        phraseIdx++;
+      }
+      buildScene(phraseIdx);
+      mode = 'assemble';
+      stateTime = 0;
+      velX = 0;
+      velY = 0;
+      returning = true;
+      restX = phraseIdx >= CAKE ? -0.3 : 0;
+      restY = 0;
+    }
+
+    var holding = mode !== 'explode';
+    var repel = !dragging && phraseIdx < CAKE && scatterAmt < 0.4;
+
+    // 手势：张开度映射为离散程度，平滑过渡；关闭手势或没检测到手时自动聚合
+    var sTarget = (gestureOn && gestureSeen) ? clamp((gestureOpen - 0.25) / 0.5, 0, 1) : 0;
+    scatterAmt += (sTarget - scatterAmt) * 0.06 * k;
+    var spread = unit * 0.62 * scatterAmt;
+
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      project(p);
+
+      if (holding) {
+        var breathe = Math.sin(stateTime * 0.0016 + i * 0.05) * 0.25;
+        var ax = (p.tx + p.scx * spread - p.x) * 0.013;
+        var ay = (p.ty + breathe + p.scy * spread - p.y) * 0.013;
+        var az = (p.tz + p.scz * spread - p.z) * 0.013;
+
+        if (repel) {
+          var dxs = p.sx - mouse.x;
+          var dys = p.sy - mouse.y;
+          var d2 = dxs * dxs + dys * dys;
+          var R = 110;
+          if (d2 < R * R && d2 > 1) {
+            var d = Math.sqrt(d2);
+            var f = (1 - d / R) * 2.6 / p.ss;
+            var ux = dxs / d, uy = dys / d;
+            ax += (ux * cosY + uy * sinX * sinY) * f;
+            ay += uy * cosX * f;
+            az += (ux * sinY - uy * sinX * cosY) * f;
+          }
+        }
+
+        p.vx = (p.vx + ax * k) * Math.pow(0.87, k);
+        p.vy = (p.vy + ay * k) * Math.pow(0.87, k);
+        p.vz = (p.vz + az * k) * Math.pow(0.87, k);
+        p.x += p.vx * k;
+        p.y += p.vy * k;
+        p.z += p.vz * k;
+        p.alpha += (1 - p.alpha) * 0.05 * k;
+
+        // 文字水波流动：行间相位错开，波沿水平方向传播，像水流掠过字面
+        if (phraseIdx < CAKE) {
+          var wamp = (1 - scatterAmt) * p.ss;
+          var wt = stateTime * 0.0022;
+          p.sy += Math.sin(p.tx * 0.011 - wt + p.ty * 0.045) * 5.2 * wamp;
+          p.sx += Math.sin(p.ty * 0.05 - wt * 0.8 + p.tx * 0.006) * 1.6 * wamp;
+        }
+      } else {
+        p.vy += 0.05 * k;
+        p.vx *= Math.pow(0.995, k);
+        p.vy *= Math.pow(0.995, k);
+        p.vz *= Math.pow(0.995, k);
+        p.x += p.vx * k;
+        p.y += p.vy * k;
+        p.z += p.vz * k;
+        p.alpha -= (introPending ? 0.008 : 0.02) * k;
+      }
+    }
+
+    for (var di = dying.length - 1; di >= 0; di--) {
+      var dp = dying[di];
+      dp.vy += 0.12 * k;
+      dp.vx *= Math.pow(0.99, k);
+      dp.vz *= Math.pow(0.99, k);
+      dp.x += dp.vx * k;
+      dp.y += dp.vy * k;
+      dp.z += dp.vz * k;
+      dp.alpha -= 0.03 * k;
+      project(dp);
+      if (dp.alpha <= 0 || dp.y > H) dying.splice(di, 1);
+    }
+
+    // 烟花
+    for (var fi = fw.length - 1; fi >= 0; fi--) {
+      var q = fw[fi];
+      q.px = q.x;
+      q.py = q.y;
+      q.vy += 0.012 * k;
+      q.vx *= Math.pow(0.985, k);
+      q.vy *= Math.pow(0.985, k);
+      q.x += q.vx * k;
+      q.y += q.vy * k;
+      q.life -= q.decay * k;
+      if (q.life <= 0) fw.splice(fi, 1);
+    }
+
+    autoFwTimer -= dt;
+    if (autoFwTimer <= 0) {
+      burst(rand(W * 0.15, W * 0.85), rand(H * 0.12, H * 0.55), rand(0, 360), 90, 1);
+      autoFwTimer = rand(1600, 3200);
+      // 流星与烟花同周期，但错开半个周期释放
+      autoMeteorTimer = autoFwTimer / 2;
+    }
+
+    // 自动流星：在两次烟花之间滑过一颗
+    if (autoMeteorTimer > 0) {
+      autoMeteorTimer -= dt;
+      if (autoMeteorTimer <= 0) {
+        showerDir = Math.random() < 0.5 ? 1 : -1;
+        spawnMeteor();
+      }
+    }
+
+    // 烛火：粒子沿火苗上浮 + 左右摇曳
+    if (phraseIdx >= CAKE) updateCakeDeco();
+    if (flames.length) {
+      flameFade += (1 - flameFade) * 0.035 * k;
+      for (var fli = 0; fli < flames.length; fli++) {
+        var fl = flames[fli];
+        fl.life += fl.speed * k;
+        if (fl.life > 1) {
+          fl.life -= 1;
+          fl.phase = Math.random() * TAU;
+        }
+        var ft = fl.life;
+        var flick = 0.85 + Math.sin(stateTime * 0.02 + fl.phase * 3) * 0.15;
+        fl.x = fl.bx + Math.sin(stateTime * 0.013 + fl.phase) * unit * 0.005 * (0.25 + ft);
+        fl.y = fl.by - ft * unit * 0.042 * flick;
+        fl.z = fl.bz + Math.cos(stateTime * 0.011 + fl.phase) * unit * 0.004 * (0.25 + ft);
+        project(fl);
+      }
+    }
+  }
+
+  // ---------- 绘制 ----------
+  function draw() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    ctx.scale(DPR, DPR);
+
+    // 极光：最遥远的柔光带，缓慢摆动
+    ctx.globalCompositeOperation = 'source-over';
+    for (var ai = 0; ai < aurora.length; ai++) {
+      var au = aurora[ai];
+      var ax = W * au.bx + Math.sin(stateTime * au.speed + au.phase) * W * 0.06;
+      var ay = H * au.by + Math.cos(stateTime * au.speed * 0.8 + au.phase) * H * 0.03;
+      var ag = ctx.createRadialGradient(ax, ay, 0, ax, ay, au.rx);
+      ag.addColorStop(0, au.c0);
+      ag.addColorStop(1, au.c1);
+      ctx.save();
+      ctx.translate(ax, ay);
+      ctx.scale(1, au.ry / au.rx);
+      ctx.translate(-ax, -ay);
+      ctx.fillStyle = ag;
+      ctx.beginPath();
+      ctx.arc(ax, ay, au.rx, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 星云：最底层，正常混合铺出色块，营造远近景深
+    ctx.globalCompositeOperation = 'source-over';
+    for (var ni = 0; ni < nebula.length; ni++) {
+      var nb = nebula[ni];
+      var g = ctx.createRadialGradient(nb.x, nb.y, 0, nb.x, nb.y, nb.r);
+      g.addColorStop(0, nb.c0);
+      g.addColorStop(1, nb.c1);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(nb.x, nb.y, nb.r, 0, TAU);
+      ctx.fill();
+    }
+
+    // 3D 星域（叠加发光）：远近透视 + 相机飞行
+    ctx.globalCompositeOperation = 'lighter';
+    drawStars3d();
+
+    // 流星雨拖尾
+    ctx.lineCap = 'round';
+    for (var mi = 0; mi < meteors.length; mi++) {
+      var mt = meteors[mi];
+      var tail = 10;
+      var grad = ctx.createLinearGradient(mt.x, mt.y, mt.x - mt.vx * tail, mt.y - mt.vy * tail);
+      grad.addColorStop(0, 'hsla(' + mt.hue + ',100%,88%,' + (mt.life * 0.95).toFixed(3) + ')');
+      grad.addColorStop(1, 'hsla(' + mt.hue + ',100%,70%,0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = mt.w;
+      ctx.beginPath();
+      ctx.moveTo(mt.x, mt.y);
+      ctx.lineTo(mt.x - mt.vx * tail, mt.y - mt.vy * tail);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // 前景虚化光斑：最靠近镜头的柔光圆
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    for (var bi = 0; bi < bokeh.length; bi++) {
+      var bk = bokeh[bi];
+      var pulse = 0.75 + 0.25 * Math.sin(stateTime * 0.001 + bk.p);
+      var bg2 = ctx.createRadialGradient(bk.x, bk.y, 0, bk.x, bk.y, bk.r);
+      bg2.addColorStop(0, 'rgba(' + bk.col + ',' + (bk.a * pulse).toFixed(3) + ')');
+      bg2.addColorStop(0.7, 'rgba(' + bk.col + ',' + (bk.a * pulse * 0.4).toFixed(3) + ')');
+      bg2.addColorStop(1, 'rgba(' + bk.col + ',0)');
+      ctx.fillStyle = bg2;
+      ctx.beginPath();
+      ctx.arc(bk.x, bk.y, bk.r, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'lighter';
+
+    // 烟花
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineWidth = 1.4;
+    for (var fi = 0; fi < fw.length; fi++) {
+      var q = fw[fi];
+      ctx.globalAlpha = Math.max(0, q.life) * 0.9;
+      ctx.strokeStyle = 'hsl(' + q.hue.toFixed(0) + ',100%,' + (58 + q.life * 20).toFixed(0) + '%)';
+      ctx.beginPath();
+      ctx.moveTo(q.px, q.py);
+      ctx.lineTo(q.x, q.y);
+      ctx.stroke();
+    }
+
+    // 粒子：文字用叠加发光，蛋糕用正常混合以保留层次与颜色
+    if (phraseIdx >= CAKE) {
+      // 蛋糕背后的暖色光晕
+      var glowR = unit * 0.58;
+      var gy = cy + unit * 0.03;
+      var cg = ctx.createRadialGradient(cx, gy, 0, cx, gy, glowR);
+      cg.addColorStop(0, 'rgba(255,150,200,0.14)');
+      cg.addColorStop(0.45, 'rgba(170,90,210,0.07)');
+      cg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      ctx.arc(cx, gy, glowR, 0, TAU);
+      ctx.fill();
+
+      ctx.globalCompositeOperation = 'source-over';
+
+      // 实心衬底：成型后淡入，堵住粒子间的细小缝隙
+      if (cakeGeo && stateTime > 600) {
+        var cf = clamp((stateTime - 600) / 900, 0, 1) * 0.92;
+        ctx.globalAlpha = cf;
+        cakeDisc(cakeGeo.plateR, cakeGeo.plateY, 'hsl(45,80%,58%)');
+        cakeBand(cakeGeo.R1, cakeGeo.y1Top, cakeGeo.baseY, 'hsl(338,50%,64%)');
+        cakeDisc(cakeGeo.R1, cakeGeo.y1Top, 'hsl(342,70%,82%)');
+        cakeBand(cakeGeo.R2, cakeGeo.y2Top, cakeGeo.y1Top, 'hsl(338,56%,68%)');
+        cakeDisc(cakeGeo.R2, cakeGeo.y2Top, 'hsl(342,78%,86%)');
+        ctx.globalAlpha = 1;
+      }
+
+      // 星环/飘带：后半部分（被蛋糕遮挡，压暗）
+      drawCakeDeco(false, clamp((stateTime - 400) / 1200, 0, 1));
+
+      for (var cp = 0; cp < parts.length; cp++) {
+        var cpp = parts[cp];
+        if (cpp.alpha <= 0.02) continue;
+        var sh = cpp.flat ? 1 : (0.6 + 0.4 * (cpp.sd || 1));
+        ctx.globalAlpha = Math.min(1, cpp.alpha * sh);
+        ctx.fillStyle = cpp.color;
+        var csize = cpp.r * 3.8 * cpp.ss;
+        ctx.fillRect(cpp.sx - csize / 2, cpp.sy - csize / 2, csize, csize);
+      }
+
+      // 星环/飘带：前半部分（在蛋糕前方，更亮）
+      drawCakeDeco(true, clamp((stateTime - 400) / 1200, 0, 1));
+      ctx.globalCompositeOperation = 'source-over';
+    } else {
+      for (var g = 0; g < parts.length; g += 5) {
+        var gp = parts[g];
+        if (gp.alpha <= 0.02) continue;
+        var gdep = clamp(gp.ss * 0.95, 0.5, 1);
+        var gRad = gp.r * gp.ss * 3;
+        if (!(gRad > 0.2)) continue;
+        ctx.globalAlpha = Math.min(1, gp.alpha) * 0.14 * gdep;
+        ctx.fillStyle = gp.color;
+        ctx.beginPath();
+        ctx.arc(gp.sx, gp.sy, gRad, 0, TAU);
+        ctx.fill();
+      }
+      for (var pi = 0; pi < parts.length; pi++) {
+        var p = parts[pi];
+        if (p.alpha <= 0.02) continue;
+        var dep = clamp(p.ss * 0.95, 0.5, 1);
+        ctx.globalAlpha = Math.min(1, p.alpha) * 0.95 * dep;
+        ctx.fillStyle = p.color;
+        var size = p.r * 2 * p.ss;
+        ctx.fillRect(p.sx - size / 2, p.sy - size / 2, size, size);
+      }
+    }
+    for (var d = 0; d < dying.length; d++) {
+      var dpart = dying[d];
+      if (dpart.alpha <= 0.02) continue;
+      ctx.globalAlpha = Math.min(1, dpart.alpha) * 0.5;
+      ctx.fillStyle = dpart.color;
+      var ds = dpart.r * 2 * dpart.ss;
+      ctx.fillRect(dpart.sx - ds / 2, dpart.sy - ds / 2, ds, ds);
+    }
+
+    ctx.globalCompositeOperation = 'lighter';
+
+    // 烛火：先铺一层叠加光晕，再画暖色焰体
+    var lampFx = [];
+    for (var li = 0; li < lampTops.length; li++) {
+      var lp = lampTops[li];
+      lampPt.x = lp.x;
+      lampPt.y = lp.y;
+      lampPt.z = lp.z;
+      project(lampPt);
+      var flick = 1 + Math.sin(stateTime * 0.021 + li * 1.7) * 0.13 + Math.sin(stateTime * 0.053 + li * 0.7) * 0.07;
+      lampFx.push({
+        x: lampPt.sx + Math.sin(stateTime * 0.006 + li * 2.1) * unit * 0.004 * lampPt.ss,
+        y: lampPt.sy,
+        h: unit * 0.033 * flick * lampPt.ss
+      });
+    }
+
+    ctx.globalCompositeOperation = 'lighter';
+    for (var gi = 0; gi < lampFx.length; gi++) {
+      var fx1 = lampFx[gi];
+      if (fx1.h < 1) continue;
+      var glow = ctx.createRadialGradient(fx1.x, fx1.y - fx1.h * 0.2, 0, fx1.x, fx1.y - fx1.h * 0.2, fx1.h * 1.7);
+      glow.addColorStop(0, 'rgba(255,200,110,0.4)');
+      glow.addColorStop(0.5, 'rgba(255,130,40,0.14)');
+      glow.addColorStop(1, 'rgba(255,80,0,0)');
+      ctx.globalAlpha = flameFade;
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(fx1.x, fx1.y - fx1.h * 0.2, fx1.h * 1.7, 0, TAU);
+      ctx.fill();
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+    for (var fj = 0; fj < lampFx.length; fj++) {
+      var fx2 = lampFx[fj];
+      if (fx2.h < 1) continue;
+      var gx = fx2.x, gy = fx2.y, hh = fx2.h, ww = hh * 0.36;
+      var grd = ctx.createRadialGradient(gx, gy - hh * 0.16, 0, gx, gy - hh * 0.16, hh * 1.02);
+      grd.addColorStop(0, 'rgba(255,253,240,1)');
+      grd.addColorStop(0.5, 'rgba(255,240,170,1)');
+      grd.addColorStop(0.85, 'rgba(255,180,80,1)');
+      grd.addColorStop(1, 'rgba(255,120,30,0)');
+      ctx.globalAlpha = flameFade;
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.moveTo(gx, gy - hh);
+      ctx.quadraticCurveTo(gx + ww * 1.5, gy - hh * 0.35, gx + ww, gy + hh * 0.06);
+      ctx.quadraticCurveTo(gx + ww * 0.6, gy + hh * 0.3, gx, gy + hh * 0.3);
+      ctx.quadraticCurveTo(gx - ww * 0.6, gy + hh * 0.3, gx - ww, gy + hh * 0.06);
+      ctx.quadraticCurveTo(gx - ww * 1.5, gy - hh * 0.35, gx, gy - hh);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,248,0.98)';
+      ctx.beginPath();
+      ctx.ellipse(gx, gy - hh * 0.02, ww * 0.3, hh * 0.22, 0, 0, TAU);
+      ctx.fill();
+    }
+
+    // 火星
+    ctx.globalCompositeOperation = 'lighter';
+    for (var fi3 = 0; fi3 < flames.length; fi3++) {
+      var f3 = flames[fi3];
+      var ft3 = f3.life;
+      var rad3 = (1.5 - ft3 * 0.8) * f3.ss * (unit / 620);
+      if (rad3 <= 0.1) continue;
+      ctx.fillStyle = 'hsl(' + (44 - 26 * ft3).toFixed(0) + ',100%,' + (88 - 26 * ft3).toFixed(0) + '%)';
+      ctx.globalAlpha = (1 - ft3) * 0.55 * flameFade;
+      ctx.fillRect(f3.sx - rad3 / 2, f3.sy - rad3 / 2, rad3, rad3);
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  // ---------- 交互 ----------
+  function startDrag(e) {
+    dragging = true;
+    returning = false;
+    dragX = e.clientX;
+    dragY = e.clientY;
+  }
+
+  function canExplode() {
+    return phraseIdx < CAKE && mode !== 'explode';
+  }
+
+  // 右键双击：回上一段（先炸开，再聚合到上一段，视角同时回正）
+  function prevScene() {
+    if (mode === 'explode' || phraseIdx <= 0) return;
+    pendingScene = phraseIdx - 1;
+    explodeText();
+  }
+
+  function onClick(x, y) {
+    if (clickTimer) {
+      clearTimeout(clickTimer);
+      clickTimer = 0;
+      if (canExplode()) explodeText();
+    } else {
+      clickTimer = setTimeout(function () {
+        clickTimer = 0;
+        var hues = [330, 45, 195, 280, 12];
+        burst(x, y, hues[(Math.random() * hues.length) | 0], 110, 1.15);
+      }, 260);
+    }
+  }
+
+  window.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  // 星域飞行按键：W/S 前后、A/D 左右、空格上升、Shift 下降
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'Space') e.preventDefault();
+    if (e.code === 'KeyF' && !e.repeat) startShower();
+    keys[e.code] = true;
+  });
+  window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+  window.addEventListener('blur', function () { keys = {}; });
+
+  window.addEventListener('pointerdown', function (e) {
+    // 点到按钮等 UI 上不触发画布手势（旋转/烟花/双击）
+    if (e.target !== cvs) return;
+    if (e.pointerType === 'touch') {
+      touchMode = true;
+      startDrag(e);
+      touchStart = { x: e.clientX, y: e.clientY, moved: false };
+      return;
+    }
+    if (e.button === 2) {
+      var nowR = performance.now();
+      if (nowR - lastRightTap < 330) {
+        // 第二次右键按下：视为右键双击，回上一段，不再进入拖动
+        lastRightTap = 0;
+        prevScene();
+      } else {
+        lastRightTap = nowR;
+        rightMoved = false;
+        startDrag(e);
+      }
+    } else if (e.button === 0) {
+      onClick(e.clientX, e.clientY);
+    }
+  });
+
+  window.addEventListener('pointermove', function (e) {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+    if (!dragging) return;
+    var dx = e.clientX - dragX;
+    var dy = e.clientY - dragY;
+    if (Math.abs(dx) + Math.abs(dy) > 4) rightMoved = true;
+    dragX = e.clientX;
+    dragY = e.clientY;
+    if (touchStart && !touchStart.moved) {
+      if (Math.abs(e.clientX - touchStart.x) + Math.abs(e.clientY - touchStart.y) > 6) touchStart.moved = true;
+    }
+    rotY += dx * 0.006;
+    rotX = clamp(rotX + dy * 0.004, -1.15, 1.15);
+    velY = dx * 0.0006;
+    velX = dy * 0.0004;
+  });
+
+  window.addEventListener('pointerup', function (e) {
+    // 右键拖动过就不算「点」，避免旋转视角后被误判为双击
+    if (e.button === 2 && rightMoved) lastRightTap = 0;
+    if (touchMode && touchStart) {
+      if (!touchStart.moved) {
+        var now = performance.now();
+        if (now - lastTap < 320) {
+          lastTap = 0;
+          if (canExplode()) explodeText();
+        } else {
+          lastTap = now;
+          var hues = [330, 45, 195, 280, 12];
+          burst(e.clientX, e.clientY, hues[(Math.random() * hues.length) | 0], 110, 1.15);
+        }
+      }
+      touchStart = null;
+    }
+    dragging = false;
+  });
+
+  window.addEventListener('pointerleave', function () {
+    mouse.x = -9999;
+    mouse.y = -9999;
+  });
+
+  window.addEventListener('resize', function () {
+    resize();
+  });
+
+  // ---------- 启动 ----------
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    cvs.width = Math.round(W * DPR);
+    cvs.height = Math.round(H * DPR);
+    off.width = cvs.width;
+    off.height = cvs.height;
+    cx = W / 2;
+    cy = H / 2;
+    FOV = Math.max(700, Math.min(W, H) * 1.45);
+    unit = Math.min(W, H);
+    initStars();
+    initNebula();
+    initAurora();
+    initBokeh();
+    if (!started) {
+      started = true;
+      introBurst();
+    } else if (introPending) {
+      introBurst();          // 开场过程中窗口变化，重新起爆
+    } else {
+      buildScene(phraseIdx);
+    }
+  }
+
+  function frame(t) {
+    requestAnimationFrame(frame);
+    if (!lastT) lastT = t;
+    var dt = t - lastT;
+    lastT = t;
+    if (dt > 60) dt = 60;
+    var k = clamp(dt / 16.667, 0.4, 2.6);
+    update(k, dt);
+    draw();
+  }
+
+  // ---------- 手势识别（MediaPipe Hands，点击开关后按需加载） ----------
+  var gBtn = document.getElementById('gestureBtn');
+  var gPanel = document.getElementById('gesturePanel');
+  var gVideo = document.getElementById('gestureVideo');
+  var gStatus = document.getElementById('gestureStatus');
+  var gMeter = document.querySelector('#gestureMeter i');
+  var gStream = null, gHands = null, gPumping = false, gBusy = false, gStarting = false;
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error('脚本加载失败')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function loadHandsLib() {
+    if (window.Hands) return Promise.resolve();
+    return loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js')
+      .catch(function () { return loadScript('https://unpkg.com/@mediapipe/hands/hands.js'); });
+  }
+
+  // 张开度：四指「指尖到手腕距离 / 近节到手腕距离」，握拳≈1，张开≈1.7+
+  function handOpenness(lm) {
+    var tips = [8, 12, 16, 20], pips = [6, 10, 14, 18], w = lm[0];
+    var sum = 0;
+    for (var i = 0; i < 4; i++) {
+      var tip = lm[tips[i]], pip = lm[pips[i]];
+      var dt = Math.hypot(tip.x - w.x, tip.y - w.y, tip.z - w.z);
+      var dp = Math.hypot(pip.x - w.x, pip.y - w.y, pip.z - w.z) || 1e-6;
+      sum += clamp((dt / dp - 1.0) / 0.6, 0, 1);
+    }
+    return sum / 4;
+  }
+
+  function onHandResults(res) {
+    var lm = res.multiHandLandmarks && res.multiHandLandmarks[0];
+    if (lm) {
+      gestureSeen = true;
+      gestureOpen += (handOpenness(lm) - gestureOpen) * 0.35;
+      gStatus.textContent = gestureOpen > 0.6 ? '张开 · 粒子离散' : gestureOpen < 0.35 ? '握拳 · 粒子聚合' : '半张 · 缓慢过渡';
+    } else {
+      gestureSeen = false;
+      gStatus.textContent = '请将手掌放入画面';
+    }
+    gMeter.style.width = Math.round((gestureSeen ? clamp((gestureOpen - 0.25) / 0.5, 0, 1) : 0) * 100) + '%';
+  }
+
+  async function pump() {
+    if (!gestureOn) { gPumping = false; return; }
+    if (!gBusy && gHands && gVideo.readyState >= 2) {
+      gBusy = true;
+      try { await gHands.send({ image: gVideo }); } catch (e) { /* 单帧失败忽略 */ }
+      gBusy = false;
+    }
+    if (gestureOn) setTimeout(pump, 40);
+    else gPumping = false;
+  }
+
+  function stopGesture() {
+    gestureOn = false;
+    gestureSeen = false;
+    gestureOpen = 0;
+    if (gStream) { gStream.getTracks().forEach(function (t) { t.stop(); }); gStream = null; }
+    gVideo.srcObject = null;
+    if (gHands) { try { gHands.close(); } catch (e) {} gHands = null; }
+    gBtn.classList.remove('on');
+    gBtn.textContent = '✋ 开启手势控制';
+    gPanel.hidden = true;
+    gMeter.style.width = '0%';
+  }
+
+  async function startGesture() {
+    gStarting = true;
+    gBtn.disabled = true;
+    gPanel.hidden = false;
+    try {
+      gStatus.textContent = '加载识别模型…';
+      await loadHandsLib();
+      gStatus.textContent = '请求摄像头权限…';
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(window.isSecureContext
+          ? '当前浏览器不支持摄像头，请换最新版 Chrome/Edge'
+          : '当前打开方式无法调用摄像头：请用 Chrome/Edge 通过 http://127.0.0.1:8765/birthday.html 访问（不要用 file:// 或内嵌预览）');
+      }
+      // 有些环境（内嵌预览/权限被静默禁用）不会弹权限框，promise 永远挂起，加超时兜底
+      var gum = navigator.mediaDevices.getUserMedia({
+        video: { width: 320, height: 240, facingMode: 'user' }, audio: false
+      });
+      var gumStale = false;
+      gum.then(function (s) {
+        if (gumStale) s.getTracks().forEach(function (t) { t.stop(); });
+      }, function () {});
+      try {
+        gStream = await Promise.race([
+          gum,
+          new Promise(function (_, rej) {
+            setTimeout(function () {
+              rej(new Error('权限请求无响应：请点击浏览器地址栏左侧图标允许摄像头，并确认 Windows 设置→隐私→摄像头已允许；若在内嵌预览中打开，请改用 Chrome/Edge 访问 http://127.0.0.1:8765/birthday.html'));
+            }, 12000);
+          })
+        ]);
+      } catch (gumErr) {
+        gumStale = true;
+        throw gumErr;
+      }
+      gVideo.srcObject = gStream;
+      await gVideo.play();
+      gHands = new window.Hands({
+        locateFile: function (f) { return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f; }
+      });
+      gHands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.6, minTrackingConfidence: 0.5 });
+      gHands.onResults(onHandResults);
+      gestureOn = true;
+      gBtn.classList.add('on');
+      gBtn.textContent = '✋ 关闭手势控制';
+      gStatus.textContent = '请将手掌放入画面';
+      if (!gPumping) { gPumping = true; pump(); }
+    } catch (err) {
+      stopGesture();
+      gPanel.hidden = false;
+      var emsg;
+      if (err && err.name === 'NotAllowedError') emsg = '摄像头权限被拒绝：请点击地址栏左侧图标改为允许，并检查 Windows 设置→隐私→摄像头';
+      else if (err && err.name === 'NotFoundError') emsg = '未检测到摄像头设备，请确认摄像头已连接';
+      else if (err && err.name === 'NotReadableError') emsg = '摄像头被其他程序占用，请关闭占用程序后重试';
+      else emsg = '初始化失败：' + ((err && err.message) || err);
+      gStatus.textContent = emsg;
+    } finally {
+      gStarting = false;
+      gBtn.disabled = false;
+    }
+  }
+
+  gBtn.addEventListener('click', function () {
+    if (gStarting) return;
+    if (gestureOn) stopGesture();
+    else startGesture();
+  });
+
+  // ---------- 背景音乐《Time machine》 ----------
+  var bgm = document.getElementById('bgm');
+  var mBtn = document.getElementById('musicBtn');
+  var musicManual = false, musicMissing = false;
+  bgm.volume = 0.55;
+
+  function syncMusicBtn() {
+    if (musicMissing) return;
+    mBtn.textContent = bgm.paused ? '🔇 音乐关' : '🎵 音乐开';
+    mBtn.classList.toggle('on', !bgm.paused);
+  }
+  bgm.addEventListener('play', syncMusicBtn);
+  bgm.addEventListener('pause', syncMusicBtn);
+  bgm.addEventListener('error', function () {
+    musicMissing = true;
+    mBtn.classList.remove('on');
+    mBtn.textContent = '🎵 缺少音频';
+    mBtn.title = '请将 time-machine.mp3 放到 birthday.html 同一目录后刷新';
+  });
+  mBtn.addEventListener('click', function () {
+    musicManual = true;
+    if (musicMissing) return;
+    if (bgm.paused) bgm.play().catch(function () {});
+    else bgm.pause();
+  });
+  // 打开页面立即尝试自动播放（浏览器允许时直接出声）；
+  // 若被自动播放策略拦截，则退化为下方首次交互开播
+  bgm.play().catch(function () {});
+  // 浏览器禁止自动有声播放，首次交互时自动开播（未手动操作过开关才自动）
+  function autoStartMusic() {
+    if (!musicManual && !musicMissing && bgm.paused) bgm.play().catch(function () {});
+    document.removeEventListener('pointerdown', autoStartMusic);
+  }
+  document.addEventListener('pointerdown', autoStartMusic);
+
+  // ---------- 手机端控制条 ----------
+  // 部分手机浏览器/内嵌 WebView 不支持 pointer:coarse 媒体查询，用 JS 再兜一层
+  if (navigator.maxTouchPoints > 0 || 'ontouchstart' in window) {
+    document.getElementById('touchBar').style.display = 'flex';
+    var hintEl = document.querySelector('.hint');
+    if (hintEl) {
+      hintEl.textContent = '单指拖动 · 旋转视角 | 双击 · 下一段 | 单击 · 放烟花';
+      hintEl.style.bottom = '58px';
+      hintEl.style.fontSize = '11px';
+      hintEl.style.padding = '0 12px';
+    }
+  }
+  function tb(id, fn) {
+    document.getElementById(id).addEventListener('pointerdown', function (e) {
+      e.stopPropagation();
+      e.preventDefault();
+      fn();
+    });
+  }
+  tb('tbPrev', prevScene);
+  tb('tbNext', function () { if (canExplode()) explodeText(); });
+  tb('tbMeteor', startShower);
+  tb('tbFly', function () {
+    var pad = document.getElementById('flyPad');
+    pad.hidden = !pad.hidden;
+    document.getElementById('tbFly').classList.toggle('on', !pad.hidden);
+  });
+  // 方向键按住生效，松开停止（复用键盘 keys 状态）
+  var holdBtns = document.querySelectorAll('#flyPad button');
+  for (var hb = 0; hb < holdBtns.length; hb++) {
+    (function (btn) {
+      var code = btn.getAttribute('data-key');
+      btn.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); keys[code] = true; });
+      function off(e) { e.stopPropagation(); keys[code] = false; }
+      btn.addEventListener('pointerup', off);
+      btn.addEventListener('pointercancel', off);
+      btn.addEventListener('pointerleave', off);
+    })(holdBtns[hb]);
+  }
+
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
